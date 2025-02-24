@@ -32,10 +32,10 @@
   - [x] Add progress indicators
   - [x] Implement error states
   - [x] Add cancel functionality
-- [ ] Create results dashboard
-  - [ ] Design text issues tab
-  - [ ] Design formatting issues tab
-  - [ ] Add export functionality (PDF/CSV)
+- [x] Create results dashboard
+  - [x] Design text issues tab
+  - [x] Design formatting issues tab
+  - [x] Add export functionality (PDF/CSV)
 - [x] Implement settings interface
   - [x] Add text/visual QC toggles
   - [x] Add formatting threshold controls
