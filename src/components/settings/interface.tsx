@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
+import { useSettingsStore } from "@/lib/stores/settings"
 
 export interface QCSettings {
   textQC: boolean;
@@ -14,15 +15,11 @@ export interface QCSettings {
   };
 }
 
-interface SettingsInterfaceProps {
-  settings: QCSettings;
-  onChange: (settings: QCSettings) => void;
-}
+export function SettingsInterface() {
+  const { settings, updateSettings, updateThreshold } = useSettingsStore()
 
-export function SettingsInterface({ settings, onChange }: SettingsInterfaceProps) {
   const handleToggleChange = (key: keyof Pick<QCSettings, 'textQC' | 'visualQC'>) => {
-    onChange({
-      ...settings,
+    updateSettings({
       [key]: !settings[key],
     })
   }
@@ -31,13 +28,7 @@ export function SettingsInterface({ settings, onChange }: SettingsInterfaceProps
     key: keyof QCSettings['thresholds'],
     value: number
   ) => {
-    onChange({
-      ...settings,
-      thresholds: {
-        ...settings.thresholds,
-        [key]: value,
-      },
-    })
+    updateThreshold(key, value)
   }
 
   return (

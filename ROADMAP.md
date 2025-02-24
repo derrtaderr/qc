@@ -36,9 +36,9 @@
   - [ ] Design text issues tab
   - [ ] Design formatting issues tab
   - [ ] Add export functionality (PDF/CSV)
-- [ ] Implement settings interface
-  - [ ] Add text/visual QC toggles
-  - [ ] Add formatting threshold controls
+- [x] Implement settings interface
+  - [x] Add text/visual QC toggles
+  - [x] Add formatting threshold controls
 
 ## Phase 4: Core Analysis Features
 - [ ] Text QC Implementation (99% accuracy target)
