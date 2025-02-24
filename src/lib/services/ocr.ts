@@ -1,5 +1,5 @@
 import { createWorker } from 'tesseract.js';
-import { createScheduler } from 'tesseract.js';
+import { PDFService } from './pdf';
 
 export interface OCRResult {
   text: string;
@@ -8,81 +8,70 @@ export interface OCRResult {
 }
 
 export class OCRService {
-  private static scheduler = createScheduler();
-  private static readonly CACHE_KEY = 'ocr-cache-';
-  private static readonly CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+  private static worker: Tesseract.Worker | null = null;
 
-  static async initWorkers(numWorkers = 2) {
-    for (let i = 0; i < numWorkers; i++) {
-      const worker = createWorker();
-      await worker;
-      this.scheduler.addWorker(await worker);
+  private static async initWorker(): Promise<Tesseract.Worker> {
+    if (!this.worker) {
+      this.worker = await createWorker('eng');
+      await this.worker.loadLanguage('eng');
+      await this.worker.initialize('eng');
     }
+    return this.worker;
   }
 
-  static async recognizeText(image: ImageData | string): Promise<OCRResult> {
+  static async recognizeText(file: File): Promise<OCRResult> {
     try {
-      // Check cache first
-      const cacheKey = this.CACHE_KEY + this.hashImage(image);
-      const cached = await this.getFromCache(cacheKey);
-      if (cached) return cached;
+      // For PDFs, we need to extract images first
+      if (file.type === 'application/pdf') {
+        const images = await PDFService.extractImages(file);
+        if (!images.length) {
+          return {
+            text: '',
+            confidence: 0,
+            error: 'No images found in PDF'
+          };
+        }
 
-      // Process image if not cached
-      const result = await this.scheduler.addJob('recognize', image);
-      const { data: { text, confidence } } = result;
+        // Process each image and combine results
+        const results = await Promise.all(
+          images.map(async (imageData) => {
+            const worker = await this.initWorker();
+            const { data } = await worker.recognize(imageData);
+            return {
+              text: data.text,
+              confidence: data.confidence
+            };
+          })
+        );
 
-      // Cache the result
-      await this.setInCache(cacheKey, { text, confidence });
+        // Combine results
+        return {
+          text: results.map(r => r.text).join('\n'),
+          confidence: results.reduce((acc, r) => acc + r.confidence, 0) / results.length
+        };
+      }
 
-      return { text, confidence };
+      // For images, process directly
+      const worker = await this.initWorker();
+      const { data } = await worker.recognize(file);
+
+      return {
+        text: data.text,
+        confidence: data.confidence
+      };
     } catch (error) {
-      if (error instanceof Error) {
-        return { text: '', confidence: 0, error: error.message };
-      }
-      return { text: '', confidence: 0, error: 'An unknown error occurred during OCR' };
+      return {
+        text: '',
+        confidence: 0,
+        error: error instanceof Error ? error.message : 'OCR processing failed'
+      };
     }
   }
 
-  static async terminate() {
-    await this.scheduler.terminate();
-  }
-
-  private static hashImage(image: ImageData | string): string {
-    // Simple hash function for cache key
-    if (typeof image === 'string') {
-      return btoa(image).slice(0, 32);
-    }
-    return btoa(image.data.toString()).slice(0, 32);
-  }
-
-  private static async getFromCache(key: string): Promise<OCRResult | null> {
-    try {
-      const cached = localStorage.getItem(key);
-      if (!cached) return null;
-
-      const { value, timestamp } = JSON.parse(cached);
-      if (Date.now() - timestamp > this.CACHE_EXPIRY) {
-        localStorage.removeItem(key);
-        return null;
-      }
-
-      return value;
-    } catch {
-      return null;
-    }
-  }
-
-  private static async setInCache(key: string, value: Omit<OCRResult, 'error'>) {
-    try {
-      localStorage.setItem(
-        key,
-        JSON.stringify({
-          value,
-          timestamp: Date.now(),
-        })
-      );
-    } catch {
-      // Ignore cache errors
+  static async cleanup(): Promise<void> {
+    if (this.worker) {
+      await this.worker.terminate();
+      this.worker = null;
     }
   }
 } 

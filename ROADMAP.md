@@ -41,16 +41,26 @@
   - [x] Add formatting threshold controls
 
 ## Phase 4: Core Analysis Features
-- [ ] Text QC Implementation (99% accuracy target)
-  - [ ] Implement text extraction pipeline
-  - [ ] Add spelling and grammar checks
-  - [ ] Add style consistency checks
-  - [ ] Implement "IC50" style validation
-- [ ] Visual QC Implementation (99% accuracy target)
-  - [ ] Add font consistency checking
-  - [ ] Implement line alignment validation
-  - [ ] Add spacing analysis
-  - [ ] Implement corruption detection
+
+### Text QC Implementation
+- [x] Create text analysis service
+- [x] Integrate LanguageTool for spelling, grammar, and style checks
+- [x] Implement text extraction from PDFs
+- [x] Implement OCR for text in images
+- [x] Add unit tests for text analysis service
+
+### Visual QC Implementation
+- [ ] Create visual analysis service
+- [ ] Implement font consistency checks
+- [ ] Implement line spacing analysis
+- [ ] Implement margin and alignment checks
+- [ ] Add unit tests for visual analysis service
+
+### Integration and Testing
+- [ ] Integrate text and visual QC services
+- [ ] Implement error handling and recovery
+- [ ] Add integration tests
+- [ ] Performance optimization and testing
 
 ## Phase 5: Performance Optimization
 - [ ] Implement client-side optimizations
