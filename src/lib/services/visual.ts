@@ -1,4 +1,5 @@
 import cv from '@techstark/opencv-js';
+import { PDFService } from './pdf';
 
 export interface VisualAnalysisResult {
   fonts: {
@@ -39,11 +40,70 @@ export class VisualAnalysisService {
     this.isInitialized = true;
   }
 
-  static async analyzePage(imageData: ImageData): Promise<VisualAnalysisResult> {
+  static async analyzePDF(file: File): Promise<VisualAnalysisResult> {
     try {
       await this.initialize();
 
-      const mat = cv.matFromImageData(imageData);
+      // Extract images from PDF
+      const images = await PDFService.extractImages(file);
+      if (!images.length) {
+        throw new Error('No images found in PDF');
+      }
+
+      // Analyze each page
+      const results = await Promise.all(
+        images.map((imageData, index) => this.analyzePage(imageData, index + 1))
+      );
+
+      // Combine results
+      return {
+        fonts: this.combineFontResults(results),
+        lineAlignment: {
+          misalignments: results.flatMap(r => r.lineAlignment.misalignments),
+        },
+        spacing: {
+          inconsistencies: results.flatMap(r => r.spacing.inconsistencies),
+        },
+        anomalies: results.flatMap(r => r.anomalies),
+      };
+    } catch (error) {
+      return {
+        fonts: [],
+        lineAlignment: { misalignments: [] },
+        spacing: { inconsistencies: [] },
+        anomalies: [],
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
+      };
+    }
+  }
+
+  private static combineFontResults(results: VisualAnalysisResult[]): VisualAnalysisResult['fonts'] {
+    const fontMap = new Map<string, { size: number; count: number }>();
+
+    results.forEach(result => {
+      result.fonts.forEach(font => {
+        const key = `${font.name}-${font.size}`;
+        const existing = fontMap.get(key);
+        if (existing) {
+          existing.count += font.count;
+        } else {
+          fontMap.set(key, { size: font.size, count: font.count });
+        }
+      });
+    });
+
+    return Array.from(fontMap.entries()).map(([key, value]) => ({
+      name: key.split('-')[0],
+      size: value.size,
+      count: value.count,
+    }));
+  }
+
+  static async analyzePage(imageData: Uint8Array, pageNum: number): Promise<VisualAnalysisResult> {
+    try {
+      // Convert Uint8Array to ImageData
+      const img = await this.uint8ArrayToImageData(imageData);
+      const mat = cv.matFromImageData(img);
       const result: VisualAnalysisResult = {
         fonts: [],
         lineAlignment: { misalignments: [] },
@@ -51,11 +111,11 @@ export class VisualAnalysisService {
         anomalies: [],
       };
 
-      // Detect text regions
+      // Convert to grayscale for better analysis
       const gray = new cv.Mat();
       cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
       
-      // Find contours for text blocks
+      // Find text regions
       const binary = new cv.Mat();
       cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
       
@@ -76,16 +136,16 @@ export class VisualAnalysisService {
         
         // Analyze font characteristics
         const roi = mat.roi(rect);
-        this.analyzeFonts(roi, result);
+        this.analyzeFonts(roi, result, pageNum);
         
         // Check line alignment
-        this.checkLineAlignment(roi, rect, result);
+        this.checkLineAlignment(roi, rect, result, pageNum);
         
         // Check spacing
-        this.checkSpacing(roi, rect, result);
+        this.checkSpacing(roi, rect, result, pageNum);
         
         // Check for anomalies
-        this.detectAnomalies(roi, rect, result);
+        this.detectAnomalies(roi, rect, result, pageNum);
         
         roi.delete();
         contour.delete();
@@ -100,26 +160,44 @@ export class VisualAnalysisService {
 
       return result;
     } catch (error) {
-      if (error instanceof Error) {
-        return {
-          fonts: [],
-          lineAlignment: { misalignments: [] },
-          spacing: { inconsistencies: [] },
-          anomalies: [],
-          error: error.message,
-        };
-      }
       return {
         fonts: [],
         lineAlignment: { misalignments: [] },
         spacing: { inconsistencies: [] },
         anomalies: [],
-        error: 'An unknown error occurred during visual analysis',
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
       };
     }
   }
 
-  private static analyzeFonts(roi: cv.Mat, result: VisualAnalysisResult): void {
+  private static async uint8ArrayToImageData(data: Uint8Array): Promise<ImageData> {
+    const blob = new Blob([data], { type: 'image/png' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    
+    return new Promise((resolve, reject) => {
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        resolve(ctx.getImageData(0, 0, img.width, img.height));
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = () => {
+        reject(new Error('Failed to load image'));
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    });
+  }
+
+  private static analyzeFonts(roi: cv.Mat, result: VisualAnalysisResult, pageNum: number): void {
     // Font analysis logic using connected components and contour analysis
     // This is a simplified version - real implementation would be more complex
     const stats = new cv.Mat();
@@ -159,7 +237,8 @@ export class VisualAnalysisService {
   private static checkLineAlignment(
     roi: cv.Mat,
     rect: { x: number; y: number; width: number; height: number },
-    result: VisualAnalysisResult
+    result: VisualAnalysisResult,
+    pageNum: number
   ): void {
     // Line alignment analysis using horizontal projection
     const projection = new cv.Mat();
@@ -182,7 +261,7 @@ export class VisualAnalysisService {
       const offset = Math.abs(peaks[i] - peaks[i - 1]);
       if (offset > 2) { // Threshold for misalignment
         result.lineAlignment.misalignments.push({
-          page: 1, // Assuming single page for now
+          page: pageNum,
           line: i,
           offset,
         });
@@ -195,7 +274,8 @@ export class VisualAnalysisService {
   private static checkSpacing(
     roi: cv.Mat,
     rect: { x: number; y: number; width: number; height: number },
-    result: VisualAnalysisResult
+    result: VisualAnalysisResult,
+    pageNum: number
   ): void {
     // Vertical projection for word spacing analysis
     const projection = new cv.Mat();
@@ -212,7 +292,7 @@ export class VisualAnalysisService {
         // Check for inconsistent spacing
         if (gapWidth > 0 && Math.abs(gapWidth - 20) > 5) { // Expected spacing = 20px
           result.spacing.inconsistencies.push({
-            page: 1, // Assuming single page for now
+            page: pageNum,
             location: { x: rect.x + i, y: rect.y },
             expected: 20,
             actual: gapWidth,
@@ -227,7 +307,8 @@ export class VisualAnalysisService {
   private static detectAnomalies(
     roi: cv.Mat,
     rect: { x: number; y: number; width: number; height: number },
-    result: VisualAnalysisResult
+    result: VisualAnalysisResult,
+    pageNum: number
   ): void {
     // Simple anomaly detection based on pattern repetition
     const hist = new cv.Mat();
@@ -258,7 +339,7 @@ export class VisualAnalysisService {
     if (maxVal > roi.rows * roi.cols * 0.5) { // More than 50% same value
       result.anomalies.push({
         type: 'repetition',
-        page: 1, // Assuming single page for now
+        page: pageNum,
         location: { x: rect.x, y: rect.y },
         description: `Unusual pattern repetition detected at (${rect.x}, ${rect.y})`,
       });
