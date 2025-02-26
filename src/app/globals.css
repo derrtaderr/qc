@@ -73,4 +73,57 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Additional styles to ensure proper rendering */
+.card {
+  @apply bg-white rounded-lg shadow-md border border-gray-200;
+}
+
+.button {
+  @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background;
+}
+
+.button-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+}
+
+.button-outline {
+  @apply border border-input hover:bg-accent hover:text-accent-foreground;
+}
+
+/* Fix for container */
+.container {
+  @apply px-4 mx-auto;
+}
+
+/* Fix for text colors */
+.text-card-foreground {
+  color: #111827; /* text-gray-900 */
+}
+
+.text-muted-foreground {
+  color: #6b7280; /* text-gray-500 */
+}
+
+/* Fix for border colors */
+.custom-border-gray-300 {
+  border-color: #d1d5db; /* border-gray-300 */
+}
+
+.custom-border-primary {
+  border-color: #2563eb; /* border-blue-600 */
+}
+
+.custom-bg-primary-light {
+  background-color: #eff6ff; /* bg-blue-50 */
+}
+
+/* Fix for text colors */
+.custom-text-green-600 {
+  color: #059669; /* text-green-600 */
+}
+
+.custom-text-gray-500 {
+  color: #6b7280; /* text-gray-500 */
 } 

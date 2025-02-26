@@ -1,9 +1,8 @@
 import * as pdfjs from 'pdfjs-dist';
 import { getDocument, PDFDocumentProxy } from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry';
 
 // Set up pdf.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface PDFWorkerMessage {
   type: 'extract_text' | 'extract_images' | 'get_page_count';

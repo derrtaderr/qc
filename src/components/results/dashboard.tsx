@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
@@ -16,7 +18,7 @@ export interface AnalysisResult {
       location: { start: number; end: number };
     }[];
   };
-  formatting: {
+  visual: {
     fonts: {
       name: string;
       size: number;
@@ -44,6 +46,7 @@ export interface AnalysisResult {
       description: string;
     }[];
   };
+  error?: string;
 }
 
 export interface ResultsDashboardProps {
@@ -52,6 +55,12 @@ export interface ResultsDashboardProps {
 }
 
 export function ResultsDashboard({ result, onExport }: ResultsDashboardProps) {
+  // Safely calculate total formatting issues with optional chaining
+  const totalFormattingIssues = 
+    (result.visual?.lineAlignment?.misalignments?.length || 0) +
+    (result.visual?.spacing?.inconsistencies?.length || 0) +
+    (result.visual?.anomalies?.length || 0);
+
   return (
     <Card className="w-full">
       <div className="p-4 border-b flex justify-between items-center">
@@ -94,17 +103,9 @@ export function ResultsDashboard({ result, onExport }: ResultsDashboardProps) {
             className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
           >
             Formatting Issues
-            {(
-              result.formatting.lineAlignment.misalignments.length +
-              result.formatting.spacing.inconsistencies.length +
-              result.formatting.anomalies.length
-            ) > 0 && (
+            {totalFormattingIssues > 0 && (
               <span className="ml-2 bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs">
-                {
-                  result.formatting.lineAlignment.misalignments.length +
-                  result.formatting.spacing.inconsistencies.length +
-                  result.formatting.anomalies.length
-                }
+                {totalFormattingIssues}
               </span>
             )}
           </TabsTrigger>
@@ -115,7 +116,7 @@ export function ResultsDashboard({ result, onExport }: ResultsDashboardProps) {
         </TabsContent>
 
         <TabsContent value="formatting" className="p-4">
-          <FormattingIssues formatting={result.formatting} />
+          <FormattingIssues formatting={result.visual} />
         </TabsContent>
       </Tabs>
     </Card>

@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from "react"
 import { Card } from "@/components/ui/card"
 import { AnalysisProgress } from "@/components/ui/progress"
