@@ -1,3 +1,8 @@
+/**
+ * PDF.js Configuration Module
+ * Handles PDF.js setup for both client and server environments
+ * Updated by Jason Derr for better compatibility with Next.js
+ */
 import * as pdfjs from 'pdfjs-dist';
 
 /**
